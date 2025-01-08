@@ -1,0 +1,29 @@
+---
+title: "Victims_of_traffic_accidents"
+output: html_document
+date: "2025-01-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the time series data
+```{r cars}
+serie=ts(read.table("victimas.dat")/1000,start=1993,freq=12)
+plot(serie, main="Victimas de Accidentes de Tráfico en España", ylab="Miles de Individuos")
+abline(v=1992:2020,lty=3,col=4)
+```
+
+# Identificaiton
+```{r cars}
+(m <- apply (matrix(serie[1:(27*12)], nr=12),2, mean)) # to check for constant variance
+(v <- apply (matrix(serie[1:(27*12)], nr=12),2, var))
+plot(v~m)
+
+group <- c(rep(1:27, rep(12, 27)))
+boxplot(serie ~ group,
+        xlab = "Year",
+        ylab = "Monthly values",
+        main = "Check of constant variance (yearly boxplots)")
+```
