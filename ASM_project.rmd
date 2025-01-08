@@ -4,19 +4,37 @@ output: html_document
 date: "2025-01-08"
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```plaintext
+title: 'ASM - Time Series'
+author: "Dmitriy Chukhri, Julian Fransen"
+date: "2024-11-24"
+output:
+  html_document:
+    toc: true
+    toc_depth: '3'
+    df_print: paged
+editor_options:
+  chunk_output_type: inline
 ```
 
-# Load the time series data
-```{r cars}
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+setwd("~/uni_folder/ASM/asm_time_series/")
+```
+# Title page (julian will do this later when we finish)
+# Table of contents (julian)
+# Introduction and background on data
+In this project we are going to .... Our data is about .... (background, metadata etc)
+# Analysis
+## Load the time series data
+```{r}
 serie=ts(read.table("victimas.dat")/1000,start=1993,freq=12)
 plot(serie, main="Victimas de Accidentes de Tráfico en España", ylab="Miles de Individuos")
 abline(v=1992:2020,lty=3,col=4)
 ```
 
-# Identificaiton
-```{r cars}
+## Data transformations
+```{r}
 (m <- apply (matrix(serie[1:(27*12)], nr=12),2, mean)) # to check for constant variance
 (v <- apply (matrix(serie[1:(27*12)], nr=12),2, var))
 plot(v~m)
@@ -27,3 +45,338 @@ boxplot(serie ~ group,
         ylab = "Monthly values",
         main = "Check of constant variance (yearly boxplots)")
 ```
+
+These plots show correct behaviour: `v` is basically uncorrelated with `m`, and the boxplots are similarily sized, implying constant variance. This means that a log transform is not necessary in our case. Lets try the seasonality, we do a monthplot:
+
+```{r}
+monthplot(serie)
+```
+
+We clearly observe seasonality, the lines should be straight, but on the plots we see a sinus-like pattern. Now we apply the seasonality, with a yearly season, hence the value 12 (for 12 months).
+
+```{r}
+d12serie=diff(serie,12)
+plot(d12serie)
+```
+
+Next, we take the regular difference.
+
+```{r}
+d1d12serie=diff(d12serie,1)
+```
+
+To verify if taking one time the regular difference is optimal, we calculate the variance of different transformation of the data:
+1. original data (`serie`)
+2. transformed with yearly season transformation (`d12serie`)
+3. one regular difference applied to the previous transformation (`d1d12serie`)
+4. another regular difference applied to the previous transformation
+
+```{r}
+#fix this output
+var(serie)
+var(d12serie)
+var(d1d12serie) # our transformation
+var(diff(d1d12serie)) # 2 regular differences
+```
+
+The total variance is minimal for one regular difference, as we can see. This means that we should take one regular difference and no more. As we can see below, the data after transformations resembles white noise, which is the aim of data transformations in time-series data analysis.
+
+```{r}
+plot(d1d12serie)
+abline(h=0)
+```
+
+
+```{r, include=FALSE}
+tserie <- d1d12serie #transformed serie is new name
+```
+
+
+## Validation
+Now we will start model creation and validation. We use the `validation` function from the fourth practical of this course, as well as other pieces of code.
+
+```{r, include=FALSE}
+#################Validation#################################
+validation=function(model){
+  s=frequency(get(model$series))
+  resid=model$residuals
+  par(mfrow=c(2,2),mar=c(3,3,3,3))
+  #Residuals plot
+  plot(resid,main="Residuals")
+  abline(h=0)
+  abline(h=c(-3*sd(resid),3*sd(resid)),lty=3,col=4)
+  #Square Root of absolute values of residuals (Homocedasticity)
+  scatter.smooth(sqrt(abs(resid)),main="Square Root of Absolute residuals",
+                 lpars=list(col=2))
+  
+  #Normal plot of residuals
+  qqnorm(resid)
+  qqline(resid,col=2,lwd=2)
+  
+  ##Histogram of residuals with normal curve
+  hist(resid,breaks=20,freq=FALSE)
+  curve(dnorm(x,mean=mean(resid),sd=sd(resid)),col=2,add=T)
+  
+  
+  #ACF & PACF of residuals
+  par(mfrow=c(1,2))
+  acf(resid,ylim=c(-1,1),lag.max=60,col=c(2,rep(1,s-1)),lwd=1)
+  pacf(resid,ylim=c(-1,1),lag.max=60,col=c(rep(1,s-1),2),lwd=1)
+  par(mfrow=c(1,1))
+  
+  #Ljung-Box p-values
+  par(mar=c(2,2,1,1))
+  tsdiag(model,gof.lag=7*s)
+  cat("\n--------------------------------------------------------------------\n")
+  print(model)
+  
+  #Stationary and Invertible
+  cat("\nModul of AR Characteristic polynomial Roots: ", 
+      Mod(polyroot(c(1,-model$model$phi))),"\n")
+  cat("\nModul of MA Characteristic polynomial Roots: ",
+      Mod(polyroot(c(1,model$model$theta))),"\n")
+  
+  suppressMessages(require(forecast,quietly=TRUE,warn.conflicts=FALSE))
+  plot(model)
+  
+  #Model expressed as an MA infinity (psi-weights)
+  psis=ARMAtoMA(ar=model$model$phi,ma=model$model$theta,lag.max=36)
+  names(psis)=paste("psi",1:36)
+  cat("\nPsi-weights (MA(inf))\n")
+  cat("\n--------------------\n")
+  print(psis[1:24])
+  
+  #Model expressed as an AR infinity (pi-weights)
+  pis=-ARMAtoMA(ar=-model$model$theta,ma=-model$model$phi,lag.max=36)
+  names(pis)=paste("pi",1:36)
+  cat("\nPi-weights (AR(inf))\n")
+  cat("\n--------------------\n")
+  print(pis[1:24])
+   
+  cat("\nDescriptive Statistics for the Residuals\n")
+  cat("\n----------------------------------------\n") 
+  
+  suppressMessages(require(fBasics,quietly=TRUE,warn.conflicts=FALSE))
+  ##Anderson-Darling test
+  print(basicStats(resid))
+  
+  ## Add here complementary tests (use with caution!)
+  ##---------------------------------------------------------
+  cat("\nNormality Tests\n")
+  cat("\n--------------------\n")
+ 
+  ##Shapiro-Wilks Normality test
+  print(shapiro.test(resid))
+
+  suppressMessages(require(nortest,quietly=TRUE,warn.conflicts=FALSE))
+  ##Anderson-Darling test
+  print(ad.test(resid))
+  
+  suppressMessages(require(tseries,quietly=TRUE,warn.conflicts=FALSE))
+  ##Jarque-Bera test
+  print(jarque.bera.test(resid))
+  
+  cat("\nHomoscedasticity Test\n")
+  cat("\n--------------------\n")
+  suppressMessages(require(lmtest,quietly=TRUE,warn.conflicts=FALSE))
+  ##Breusch-Pagan test
+  obs=get(model$series)
+  print(bptest(resid~I(obs-resid)))
+  
+  cat("\nIndependence Tests\n")
+  cat("\n--------------------\n")
+  
+  ##Durbin-Watson test
+  print(dwtest(resid~I(1:length(resid))))
+  
+  ##Ljung-Box test
+  cat("\nLjung-Box test\n")
+  print(t(apply(matrix(c(1:4,(1:4)*s)),1,function(el) {
+    te=Box.test(resid,type="Ljung-Box",lag=el)
+    c(lag=(te$parameter),statistic=te$statistic[[1]],p.value=te$p.value)})))
+  
+}
+################# Fi Validation #################################
+```
+
+
+
+```{r, echo=FALSE}
+par(mfrow=c(1,2))
+acf(tserie,ylim=c(-1,1),col=c(2,rep(1,11)),lwd=2,lag.max=72)
+pacf(tserie,ylim=c(-1,1),col=c(rep(1,11),2),lwd=2,lag.max=72)
+```
+
+
+On these plots above (left ACF plot, right PACF) we can see that almost all values fall within the CI, meaning we can assume they are zero. This is of course how these plots are supposed to look like after a valid data transformation. There are, however, a few significant non-zero values, which we will use for model selection. 
+
+Now we will define our ARIMA model, partly based on theory and partly based on empirical test. We know that it is seasonal data
+
+After accounting for difference, look at the residual ACF and PACF (or the differenced series) to decide on:
+
+    p: the order of the AR part, guided by how many lags in the PACF are significant.
+    q: the order of the MA part, guided by how many lags in the ACF are significant.
+Based on the ACF plot, `p` is most likely 2. `q`could be either 0 or 1. We applied one regular difference, so we know `d` is 1. 
+To be thorough, initially we take all possible lower order values of p and q. Then we discard them based on AIC and BIC
+For the seasonal argument, we know the data is seasonal so we should set `seasonal` to ` =list(order=c(0,1,1),period=12))`
+
+## Because of the peak at lag 12 in both ACF and PACF, we tried changing order values in here: the list(order = c(0,1,1), period = 12))
+
+Lets make sure that seasonality is optimal.
+
+```{r, include=FALSE}
+# Initialize a data frame to store the results
+results <- data.frame(p = integer(),
+                      P = integer(),
+                      q = integer(),
+            
+                      AIC = numeric(),
+                      BIC = numeric())
+
+# Loop over possible values of P, D, Q, and period
+for (p in 0:2) {          # Experiment with seasonal AR orders (e.g., 0 to 2)
+  for (q in 0:1) {        # Seasonal differencing (typically 0 or 1)
+     for (P in 0:1) {     # Experiment with seasonal MA orders (e.g., 0 to 2)
+      
+
+        # Fit the ARIMA model with the current seasonal parameters
+        mod <- arima(serie, 
+                     order = c(p, 1, q), 
+                     seasonal = list(order = c(0,1,1), period = 12))
+
+        # Store the AIC and BIC values
+        results <- rbind(results, 
+                         data.frame(p = p, 
+                                    P = P,
+                                   
+                                    q = q, 
+                                    AIC = AIC(mod), 
+                                    BIC = BIC(mod)))
+      
+     }
+  }
+}
+
+# Sort results by AIC (or BIC) for easier interpretation
+dresults <- results[order(results$AIC), ]
+m1m2res <- dresults[1:2]
+# Display the results
+print(dresults)
+```
+After experimenting with the `p`, `i`, and `q` parameters of `order`, and with the seasonality parameters as well, we have found 2 similarly performing models. `mod1` and `mod2` (see table below). Their value of `p` is different but all other parameters are identical. We chose these two models because they both have a low AIC value; `mod1` has the lowest and `mod2` has a slightly higher value, but has fewer parameters, reflected in the fact that is has the lowest BIC value, since this metric penalizes the number of parameters more than AIC. 
+
+```{r, echo=FALSE}
+m1m2res <- head(dresults, 2)
+print(m1m2res)
+(mod1=arima(tserie,order=c(2,0,1),seasonal=list(order=c(0,1,1),period=12)))
+(mod2=arima(tserie,order=c(0,0,1),seasonal=list(order=c(0,1,1),period=12)))
+```
+
+# okay dima, from here you go go
+use echo=FALSE to not show the code; use include to not show the code AND output, use ```plaintext for text boxes. I will take care of the title page, table of contents etc. 
+
+We will be taking a look at the residual plots for these models and selecting one for prediction.  
+
+
+```{r}
+validation(mod1)
+```
+
+
+```{r}
+validation(mod2)
+```
+
+```{r}
+ultim=c(2018,12)
+pdq=c(1,1,1)
+PDQ=c(0,1,1)
+
+serie2=window(serie,end=ultim)
+lnserie2=log(serie2)
+serie1=window(serie,end=ultim+c(1,0))
+lnserie1=log(serie1)
+
+(modA=arima(lnserie1,order=pdq,seasonal=list(order=PDQ,period=12)))
+(modB=arima(lnserie2,order=pdq,seasonal=list(order=PDQ,period=12)))
+```
+
+```{r}
+pred=predict(modB,n.ahead=12)
+pr<-ts(c(tail(lnserie2,1),pred$pred),start=ultim,freq=12)
+se<-ts(c(0,pred$se),start=ultim,freq=12)
+
+#Intervals
+tl<-ts(exp(pr-1.96*se),start=ultim,freq=12)
+tu<-ts(exp(pr+1.96*se),start=ultim,freq=12)
+pr<-ts(exp(pr),start=ultim,freq=12)
+
+
+ts.plot(serie,tl,tu,pr,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=ultim[1]+c(-2,+2),type="o",main=paste("Model ARIMA(",paste(pdq,collapse=","),")(",paste(PDQ,collapse=","),")12",sep=""))
+abline(v=(ultim[1]-2):(ultim[1]+2),lty=3,col=4)
+```
+
+```{r}
+pred=predict(modB,n.ahead=12)
+pr<-ts(c(tail(lnserie2,1),pred$pred),start=ultim,freq=12)
+se<-ts(c(0,pred$se),start=ultim,freq=12)
+
+#Intervals
+tl<-ts(exp(pr-1.96*se),start=ultim,freq=12)
+tu<-ts(exp(pr+1.96*se),start=ultim,freq=12)
+pr<-ts(exp(pr),start=ultim,freq=12)
+
+
+ts.plot(serie,tl,tu,pr,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=ultim[1]+c(-2,+2),type="o",main=paste("Model ARIMA(",paste(pdq,collapse=","),")(",paste(PDQ,collapse=","),")12",sep=""))
+abline(v=(ultim[1]-2):(ultim[1]+2),lty=3,col=4)
+```
+
+```{r}
+obs=window(serie,start=ultim+c(0,1))
+pr=window(pr,start=ultim+c(0,1))
+ts(data.frame(LowLim=tl[-1],Predic=pr,UpperLim=tu[-1],Observ=obs,Error=obs-pr,PercentError=(obs-pr)/obs),start=ultim+c(0,1),freq=12)
+mod.RMSE1=sqrt(sum((obs-pr)^2)/12)
+mod.MAE1=sum(abs(obs-pr))/12
+mod.RMSPE1=sqrt(sum(((obs-pr)/obs)^2)/12)
+mod.MAPE1=sum(abs(obs-pr)/obs)/12
+
+data.frame("RMSE"=mod.RMSE1,"MAE"=mod.MAE1,"RMSPE"=mod.RMSPE1,"MAPE"=mod.MAPE1)
+
+mCI1=mean(tu-tl)
+
+cat("\nMean Length CI: ",mCI1)
+```
+
+
+```{r}
+pred=predict(modA,n.ahead=12)
+pr<-ts(c(tail(lnserie1,1),pred$pred),start=ultim+c(1,0),freq=12)
+se<-ts(c(0,pred$se),start=ultim+c(1,0),freq=12)
+
+tl1<-ts(exp(pr-1.96*se),start=ultim+c(1,0),freq=12)
+tu1<-ts(exp(pr+1.96*se),start=ultim+c(1,0),freq=12)
+pr1<-ts(exp(pr),start=ultim+c(1,0),freq=12)
+
+ts.plot(serie,tl1,tu1,pr1,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=c(ultim[1]-2,ultim[1]+3),type="o",main=paste("Model ARIMA(",paste(pdq,collapse=","),")(",paste(PDQ,collapse=","),")12",sep=""))
+abline(v=(ultim[1]-2):(ultim[1]+3),lty=3,col=4)
+```
+
+
+```{r}
+(previs1=window(cbind(tl1,pr1,tu1),start=ultim+c(1,0)))
+```
+
+```{r}
+ultim=c(2018,12)
+pdq=c(8,1,0)
+PDQ=c(0,1,1)
+
+serie2=window(serie,end=ultim)
+lnserie2=log(serie2)
+serie1=window(serie,end=ultim+c(1,0))
+lnserie1=log(serie1)
+
+(modA=arima(lnserie1,order=pdq,seasonal=list(order=PDQ,period=12)))
+(modB=arima(lnserie2,order=pdq,seasonal=list(order=PDQ,period=12)))
+```
+
