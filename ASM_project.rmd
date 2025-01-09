@@ -312,7 +312,7 @@ dresults <- results[order(results$AIC), ]
 print(dresults)
 ```
 
-From the output above we can state that our theory about possible non-seasonal AR(6) model might be correct. Some of the SARIMA models that have non-seasonal AR(6) part do very well in terms of AIC values, in fact the model SARIMA(6,1,1)(0,1,1)12 has the lowest AIC value, however BIC penalizes complexity of the models differently than AIC does and in terms of BIC values these models are average at best. One might think that we should easily choose models that would have AIC values of 2-3 points higher but with BIC values of 10 points lower at worst that the earlier mentioned SARIMA models but AIC/BIC values is not the only indicator of selecting the most optimal time-series model. After experimenting with the proposed `p`, `P`, `Q` parameters for SARIMA models, we have decided to further validate 3 better than average models. These 3 models, `mod1`, `mod2`, and `mod3`, can be seen in the outputs above. Their value of `p` is different (6,2,0) but all other parameters are identical. We were thinking about inclusion of models that have seasonal AR part with the value of 1 (P = 1) but all such models always do worse in terms of AIC/BIC compared to exactly same models but with seasonal AR part with the value of 0 (P = 0). The first model `mod1` is the most complex in terms of parameters (the highest p parameter), it has the lowest AIC, and the highest BIC. The second model `mod2` is the 2nd ranked in terms of complexity of parameters (the second highest p parameter) and it has the second highest AIC and BIC. The third model `mod3` is the least complex in terms of parameters (the lowest p parameter), it has the highest AIC, and the lowest BIC.
+From the output above we can state that our theory about possible non-seasonal AR(6) model might be correct. Some of the SARIMA models that have non-seasonal AR(6) part do very well in terms of AIC values, in fact the model SARIMA(6,1,1)(0,1,1)<sub>12</sub> has the lowest AIC value, however BIC penalizes complexity of the models differently than AIC does and in terms of BIC values these models are average at best. One might think that we should easily choose models that would have AIC values of 2-3 points higher but with BIC values of 10 points lower at worst that the earlier mentioned SARIMA models but AIC/BIC values is not the only indicator of selecting the most optimal time-series model. After experimenting with the proposed `p`, `P`, `Q` parameters for SARIMA models, we have decided to further validate 3 better than average models. These 3 models, `mod1`, `mod2`, and `mod3`, can be seen in the outputs above. Their value of `p` is different (6,2,0) but all other parameters are identical. We were thinking about inclusion of models that have seasonal AR part with the value of 1 (P = 1) but all such models always do worse in terms of AIC/BIC compared to exactly same models but with seasonal AR part with the value of 0 (P = 0). The first model `mod1` is the most complex in terms of parameters (the highest p parameter), it has the lowest AIC, and the highest BIC. The second model `mod2` is the 2nd ranked in terms of complexity of parameters (the second highest p parameter) and it has the second highest AIC and BIC. The third model `mod3` is the least complex in terms of parameters (the lowest p parameter), it has the highest AIC, and the lowest BIC.
 
 ```{r, echo=FALSE}
 (mod1=arima(serie,order=c(6,1,1),seasonal=list(order=c(0,1,1),period=12)))
@@ -320,114 +320,166 @@ From the output above we can state that our theory about possible non-seasonal A
 (mod3=arima(serie,order=c(0,1,1),seasonal=list(order=c(0,1,1),period=12)))
 ```
 
-# okay dima, from here you go go
-use echo=FALSE to not show the code; use include to not show the code AND output, use ```plaintext for text boxes. I will take care of the title page, table of contents etc. 
-
-We will be taking a look at the residual plots for these models and selecting one for prediction.  
-
+We will be taking a look at the outputs of the validation function for models `mod1`, `mod2`, and `mod3`. This function provides all the necessary things for the evaluation of a model which are complete analysis of residuals and roots of polynomials/pi and psi weights to check the causality and/or invertibility. 
 
 ```{r}
 validation(mod1)
 ```
 
+For the model SARIMA(6,1,1)(0,1,1)<sub>12</sub>
+
+- Residuals plot
+    - The residuals are centered around zero with no evident trend
+    - Occasional spikes above the confidence intervals that might be explain by potential outliers
+- Square Root of Absolute Residuals
+    - A reasonable consistent spread, which implies constant variance over time and homoscedasticity
+- Normal Q-Q Plot
+    - Small deviations from the diagonal line are seen at the ends of the line, but since the trend holds and deviations clearly can't be called heavy tails they might be caused by potential outliers
+- Histogram of residuals
+    - Some asymmetry is visible
+    - A couple of observations above the bell-shaped curve are seen at the ends of it hinting at potential outliers
+- ACF and PACF of Residuals
+    - There are barely any lags that are above confidence intervals and if they are they are higher by negligible value indicating there are no significant autocorrelation/partial autocorrelations in residuals
+- Standardized Residuals
+    - The standardized residuals fluctuate around zero without evident patterns or trends, though some standardized residuals definitely look like spikes hinting at potential outliers
+- p-values for Ljung-Box Test
+    - None of the p-values for the Ljung-Box test are below 0.05, indicating no significant autocorrelation in the residuals.
+    
+Based on the SARIMA(6,1,1)(0,1,1)<sub>12</sub> model modules of AR/MA characteristic polynomial roots we can say that the model is both causal and invertible as all modules of polynomial roots are higher than 1.
+
+
 ```{r}
 validation(mod2)
 ```
+
+For the model SARIMA(2,1,1)(0,1,1)<sub>12</sub>
+
+- Residuals plot
+    - The residuals are centered around zero with no evident trend
+    - Occasional spikes above the confidence intervals that might be explain by potential outliers
+- Square Root of Absolute Residuals
+    - A reasonable consistent spread, which implies constant variance over time and homoscedasticity
+- Normal Q-Q Plot
+    - Small deviations from the diagonal line are seen at the ends of the line, but since the trend holds and deviations clearly can't be called heavy tails they might be caused by potential outliers
+    - Points at both ends of the lined distributed worse compared to SARIMA(6,1,1)(0,1,1)<sub>12</sub> model
+    - Even though they are most likely called by potential outliers it means that skewness and kurtosis values might be different for this model compared to SARIMA(6,1,1)(0,1,1)<sub>12</sub> model
+- Histogram of residuals
+    - Some asymmetry is visible
+    - A couple of observations above the bell-shaped curve are seen at the ends of it hinting at potential outliers
+- ACF and PACF of Residuals
+    - There are barely any lags that are above confidence intervals and if they are they are higher by negligible value indicating there are no significant autocorrelation/partial autocorrelations in residuals
+- Standardized Residuals
+    - The standardized residuals fluctuate around zero without evident patterns or trends, though some standardized residuals definitely look like spikes hinting at potential outliers
+- p-values for Ljung-Box Test
+    - None of the p-values for the Ljung-Box test are below 0.05 and the lowest p-value is around 0.0525, indicating no significant autocorrelation in the residuals.
+    - Compared to SARIMA(6,1,1)(0,1,1)<sub>12</sub> model all p-values are significantly lower across the board, though they are still above the confidence interval
+    
+Based on the SARIMA(2,1,1)(0,1,1)<sub>12</sub> model modules of AR/MA characteristic polynomial roots we can say that the model is both causal and invertible as all modules of polynomial roots are higher than 1.
+
 
 ```{r}
 validation(mod3)
 ```
 
-```{r}
-ultim=c(2018,12)
-pdq=c(1,1,1)
-PDQ=c(0,1,1)
+For the model SARIMA(0,1,1)(0,1,1)<sub>12</sub>
 
-serie2=window(serie,end=ultim)
-lnserie2=log(serie2)
-serie1=window(serie,end=ultim+c(1,0))
-lnserie1=log(serie1)
+- Residuals plot
+    - The residuals are centered around zero with no evident trend
+    - Occasional spikes above the confidence intervals that might be explain by potential outliers
+- Square Root of Absolute Residuals
+    - A reasonable consistent spread, which implies constant variance over time and homoscedasticity
+- Normal Q-Q Plot
+    - Small deviations from the diagonal line are seen at the ends of the line, but since the trend holds and deviations clearly can't be called heavy tails they might be caused by potential outliers
+    - SARIMA(0,1,1)(0,1,1)<sub>12</sub> model has the best Normal Q-Q plot
+- Histogram of residuals
+    - Some asymmetry is visible
+    - A couple of observations above the bell-shaped curve are seen at the ends of it hinting at potential outliers
+- ACF and PACF of Residuals
+    - There are barely any lags that are above confidence intervals and if they are they are higher by negligible value indicating there are no significant autocorrelation/partial autocorrelations in residuals
+- Standardized Residuals
+    - The standardized residuals fluctuate around zero without evident patterns or trends, though some standardized residuals definitely look like spikes hinting at potential outliers
+- p-values for Ljung-Box Test
+    - Around 50% of the p-values for the Ljung-Box test are below 0.05 and the lowest p-value is around close to 0 (somewhere around 0.01-0.02)
+    - For the most part p-values struggle to be above 0.05 for higher lags indicating significant serial autocorrelation
+    
+Based on the SARIMA(0,1,1)(0,1,1)<sub>12</sub> model modules of AR/MA characteristic polynomial roots we can say that the model is both causal and invertible as all modules of polynomial roots are higher than 1.
 
-(modA=arima(lnserie1,order=pdq,seasonal=list(order=PDQ,period=12)))
-(modB=arima(lnserie2,order=pdq,seasonal=list(order=PDQ,period=12)))
-```
-
-```{r}
-pred=predict(modB,n.ahead=12)
-pr<-ts(c(tail(lnserie2,1),pred$pred),start=ultim,freq=12)
-se<-ts(c(0,pred$se),start=ultim,freq=12)
-
-#Intervals
-tl<-ts(exp(pr-1.96*se),start=ultim,freq=12)
-tu<-ts(exp(pr+1.96*se),start=ultim,freq=12)
-pr<-ts(exp(pr),start=ultim,freq=12)
-
-
-ts.plot(serie,tl,tu,pr,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=ultim[1]+c(-2,+2),type="o",main=paste("Model ARIMA(",paste(pdq,collapse=","),")(",paste(PDQ,collapse=","),")12",sep=""))
-abline(v=(ultim[1]-2):(ultim[1]+2),lty=3,col=4)
-```
-
-```{r}
-pred=predict(modB,n.ahead=12)
-pr<-ts(c(tail(lnserie2,1),pred$pred),start=ultim,freq=12)
-se<-ts(c(0,pred$se),start=ultim,freq=12)
-
-#Intervals
-tl<-ts(exp(pr-1.96*se),start=ultim,freq=12)
-tu<-ts(exp(pr+1.96*se),start=ultim,freq=12)
-pr<-ts(exp(pr),start=ultim,freq=12)
-
-
-ts.plot(serie,tl,tu,pr,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=ultim[1]+c(-2,+2),type="o",main=paste("Model ARIMA(",paste(pdq,collapse=","),")(",paste(PDQ,collapse=","),")12",sep=""))
-abline(v=(ultim[1]-2):(ultim[1]+2),lty=3,col=4)
-```
-
-```{r}
-obs=window(serie,start=ultim+c(0,1))
-pr=window(pr,start=ultim+c(0,1))
-ts(data.frame(LowLim=tl[-1],Predic=pr,UpperLim=tu[-1],Observ=obs,Error=obs-pr,PercentError=(obs-pr)/obs),start=ultim+c(0,1),freq=12)
-mod.RMSE1=sqrt(sum((obs-pr)^2)/12)
-mod.MAE1=sum(abs(obs-pr))/12
-mod.RMSPE1=sqrt(sum(((obs-pr)/obs)^2)/12)
-mod.MAPE1=sum(abs(obs-pr)/obs)/12
-
-data.frame("RMSE"=mod.RMSE1,"MAE"=mod.MAE1,"RMSPE"=mod.RMSPE1,"MAPE"=mod.MAPE1)
-
-mCI1=mean(tu-tl)
-
-cat("\nMean Length CI: ",mCI1)
-```
+Now we are going to check the stability of the proposed models and evaluate their capability of prediction, reserving the last 12 observations.
 
 
 ```{r}
-pred=predict(modA,n.ahead=12)
-pr<-ts(c(tail(lnserie1,1),pred$pred),start=ultim+c(1,0),freq=12)
-se<-ts(c(0,pred$se),start=ultim+c(1,0),freq=12)
+# Correct split for training and testing
+ultim <- c(2018, 12)  # Train until the end of 2018
+serie_train <- window(serie, end = ultim)  # Training data (1993 to 2018)
+serie_test <- window(serie, start = ultim + c(0, 1))  # Test data (2019)
 
-tl1<-ts(exp(pr-1.96*se),start=ultim+c(1,0),freq=12)
-tu1<-ts(exp(pr+1.96*se),start=ultim+c(1,0),freq=12)
-pr1<-ts(exp(pr),start=ultim+c(1,0),freq=12)
+# Fit models to training data
+(mod1B <- arima(serie_train, order = c(6, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12)))
+(mod2B <- arima(serie_train, order = c(2, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12)))
+(mod3B <- arima(serie_train, order = c(0, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12)))
 
-ts.plot(serie,tl1,tu1,pr1,lty=c(1,2,2,1),col=c(1,4,4,2),xlim=c(ultim[1]-2,ultim[1]+3),type="o",main=paste("Model ARIMA(",paste(pdq,collapse=","),")(",paste(PDQ,collapse=","),")12",sep=""))
-abline(v=(ultim[1]-2):(ultim[1]+3),lty=3,col=4)
+# Predict for the next 12 months (2019)
+pred1 <- predict(mod1B, n.ahead = 12)
+pred2 <- predict(mod2B, n.ahead = 12)
+pred3 <- predict(mod3B, n.ahead = 12)
+
+# Convert predictions and standard errors into time series
+pr1 <- ts(pred1$pred, start = ultim + c(0, 1), freq = 12)
+se1 <- ts(pred1$se, start = ultim + c(0, 1), freq = 12)
+pr2 <- ts(pred2$pred, start = ultim + c(0, 1), freq = 12)
+se2 <- ts(pred2$se, start = ultim + c(0, 1), freq = 12)
+pr3 <- ts(pred3$pred, start = ultim + c(0, 1), freq = 12)
+se3 <- ts(pred3$se, start = ultim + c(0, 1), freq = 12)
+
+# Compute confidence intervals for predictions
+tl1 <- pr1 - 1.96 * se1
+tu1 <- pr1 + 1.96 * se1
+tl2 <- pr2 - 1.96 * se2
+tu2 <- pr2 + 1.96 * se2
+tl3 <- pr3 - 1.96 * se3
+tu3 <- pr3 + 1.96 * se3
+
+# Visualize predictions for Model 1 with Actual Data
+ts.plot(serie, tl1, tu1, pr1, lty = c(1, 2, 2, 1), col = c(1, 4, 4, 2),
+        xlim = c(2017, 2020), type = "o",
+        main = paste("Model ARIMA(6,1,1)(0,1,1)12"))
+abline(v = (2017:2020), lty = 3, col = 4)
+
+# Visualize predictions for Model 2
+ts.plot(serie, tl2, tu2, pr2, lty = c(1, 2, 2, 1), col = c(1, 4, 4, 2),
+        xlim = c(2017, 2020), type = "o",
+        main = paste("Model ARIMA(2,1,1)(0,1,1)12"))
+abline(v = (2017:2020), lty = 3, col = 4)
+
+# Visualize predictions for Model 3
+ts.plot(serie, tl3, tu3, pr3, lty = c(1, 2, 2, 1), col = c(1, 4, 4, 2),
+        xlim = c(2017, 2020), type = "o",
+        main = paste("Model ARIMA(0,1,1)(0,1,1)12"))
+abline(v = (2017:2020), lty = 3, col = 4)
+
+# Evaluate Prediction Errors (2019 Observations)
+obs <- window(serie, start = ultim + c(0, 1))  # Observed data for 2019
+error1 <- obs - window(pr1, start = ultim + c(0, 1))
+error2 <- obs - window(pr2, start = ultim + c(0, 1))
+error3 <- obs - window(pr3, start = ultim + c(0, 1))
+
+# Compute Metrics for Each Model
+metrics <- data.frame(
+  Model = c("ARIMA(6,1,1)(0,1,1)", "ARIMA(2,1,1)(0,1,1)", "ARIMA(0,1,1)(0,1,1)"),
+  RMSE = c(sqrt(mean(error1^2, na.rm = TRUE)),
+           sqrt(mean(error2^2, na.rm = TRUE)),
+           sqrt(mean(error3^2, na.rm = TRUE))),
+  MAE = c(mean(abs(error1), na.rm = TRUE),
+          mean(abs(error2), na.rm = TRUE),
+          mean(abs(error3), na.rm = TRUE)),
+  RMSPE = c(sqrt(mean((error1 / obs)^2, na.rm = TRUE)),
+            sqrt(mean((error2 / obs)^2, na.rm = TRUE)),
+            sqrt(mean((error3 / obs)^2, na.rm = TRUE))),
+  MAPE = c(mean(abs(error1 / obs), na.rm = TRUE),
+           mean(abs(error2 / obs), na.rm = TRUE),
+           mean(abs(error3 / obs), na.rm = TRUE))
+)
+
+# Display Metrics
+metrics
 ```
-
-
-```{r}
-(previs1=window(cbind(tl1,pr1,tu1),start=ultim+c(1,0)))
-```
-
-```{r}
-ultim=c(2018,12)
-pdq=c(8,1,0)
-PDQ=c(0,1,1)
-
-serie2=window(serie,end=ultim)
-lnserie2=log(serie2)
-serie1=window(serie,end=ultim+c(1,0))
-lnserie1=log(serie1)
-
-(modA=arima(lnserie1,order=pdq,seasonal=list(order=PDQ,period=12)))
-(modB=arima(lnserie2,order=pdq,seasonal=list(order=PDQ,period=12)))
-```
-
