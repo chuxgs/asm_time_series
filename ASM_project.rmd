@@ -2,11 +2,13 @@
 title: "Victims_of_traffic_accidents"
 output: html_document
 date: "2025-01-08"
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```plaintext
 title: 'ASM - Time Series'
-author: "Dmitriy Chukhri, Julian Fransen"
+author: "Dmitriy Chukhray, Julian Fransen"
 date: "2024-11-24"
 output:
   html_document:
@@ -19,12 +21,14 @@ editor_options:
 
 ```{r setup, include=FALSE}
 #knitr::opts_chunk$set(echo = TRUE)
-setwd("~/uni_folder/ASM/asm_time_series/")
+#setwd("~/uni_folder/ASM/asm_time_series/")
 ```
 # Title page (julian will do this later when we finish)
 # Table of contents (julian)
-# Introduction and background on data
-In this project we are going to .... Our data is about .... (background, metadata etc)
+# Introduction
+The dataset under analysis consists of monthly data on victims of traffic accidents in Spain, including fatalities, serious injuries, and minor injuries, recorded on urban and interurban roads. In this project we will apply the Box-Jenkins ARIMA methodology to understand the time-series dynamics of these traffic incidents and to make reliable predictions for future trends. Spanning from 1993 to 2019, the dataset captures over two decades of detailed information, offering a unique opportunity to identify trends, seasonal patterns, and underlying factors that influence traffic accidents.
+
+
 # Analysis
 ## Load the time series data
 ```{r}
@@ -38,6 +42,7 @@ abline(v=1992:2020,lty=3,col=4)
 (m <- apply (matrix(serie[1:(27*12)], nr=12),2, mean)) # to check for constant variance
 (v <- apply (matrix(serie[1:(27*12)], nr=12),2, var))
 plot(v~m)
+abline(lm(v~m),col=2,lty=3)
 
 group <- c(rep(1:27, rep(12, 27)))
 boxplot(serie ~ group,
@@ -46,26 +51,27 @@ boxplot(serie ~ group,
         main = "Check of constant variance (yearly boxplots)")
 ```
 
-These plots show correct behaviour: `v` is basically uncorrelated with `m`, and the boxplots are similarily sized, implying constant variance. This means that a log transform is not necessary in our case. Lets try the seasonality, we do a monthplot:
+These plots show correct behaviour: `v` is basically uncorrelated with `m`, and the boxplots are similarily sized, implying constant variance. This means that a log transform is not necessary in our case. The next step is to check the existence of a seasonal pattern in the time series. To do that we are using the function monthplot.
 
 ```{r}
 monthplot(serie)
 ```
 
-We clearly observe seasonality, the lines should be straight, but on the plots we see a sinus-like pattern. Now we apply the seasonality, with a yearly season, hence the value 12 (for 12 months).
+In the plot above, we can clearly observe a seasonal pattern. If there were no seasonal component, the monthly means would remain at approximately the same level over time, and the shapes of the patterns for each month would not exhibit systematic repetition. These periodic fluctuations suggest that certain months consistently experience higher or lower values, driven by underlying seasonal component(s). To account for this seasonality, we apply a seasonal differencing transformation with a yearly period (12 months).
 
 ```{r}
 d12serie=diff(serie,12)
 plot(d12serie)
+abline(h=0, col='red', lty=2)
 ```
 
-Next, we take the regular difference.
+The last step of achieving the stationary of the time series is to check whether the mean is constant or not. This can be done by examining the plot of the current time series data or by straight forwardly applying regular difference and then examining the change of the time series' variance.
 
 ```{r}
 d1d12serie=diff(d12serie,1)
 ```
 
-To verify if taking one time the regular difference is optimal, we calculate the variance of different transformation of the data:
+To verify if taking one regular difference is optimal, we calculate the variance of different transformation of the data:
 1. original data (`serie`)
 2. transformed with yearly season transformation (`d12serie`)
 3. one regular difference applied to the previous transformation (`d1d12serie`)
@@ -79,16 +85,21 @@ var(d1d12serie) # our transformation
 var(diff(d1d12serie)) # 2 regular differences
 ```
 
-The total variance is minimal for one regular difference, as we can see. This means that we should take one regular difference and no more. As we can see below, the data after transformations resembles white noise, which is the aim of data transformations in time-series data analysis.
+The total variance is minimal for one regular and one 12 month seasonal difference. This means that we should take one regular difference and no more. As we can see below, the data after transformations resembles white noise, which is the aim of data transformations in time-series data analysis.
 
 ```{r}
-plot(d1d12serie)
-abline(h=0)
+plot(d1d12serie) 
+abline(h=0, col='red', lty=2)
 ```
-
 
 ```{r, include=FALSE}
 tserie <- d1d12serie #transformed serie is new name
+```
+
+```{r}
+par(mfrow=c(1,2))
+acf(tserie,ylim=c(-1,1),col=c(2,rep(1,11)),lwd=2,lag.max=72)
+pacf(tserie,ylim=c(-1,1),col=c(rep(1,11),2),lwd=2,lag.max=72)
 ```
 
 
