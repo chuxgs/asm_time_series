@@ -307,16 +307,17 @@ for (p in c(0,2,6)) {          # Experiment with seasonal AR orders (e.g., 0 to 
 }
 
 # Sort results by AIC (or BIC) for easier interpretation
-dresults <- results[order(results$BIC), ]
+dresults <- results[order(results$AIC), ]
 # Display the results
 print(dresults)
 ```
-After experimenting with the `p`, `i`, and `q` parameters of `order`, and with the seasonality parameters as well, we have found 2 similarly performing models. `mod1` and `mod2` (see table below). Their value of `p` is different but all other parameters are identical. We chose these two models because they both have a low AIC value; `mod1` has the lowest and `mod2` has a slightly higher value, but has fewer parameters, reflected in the fact that is has the lowest BIC value, since this metric penalizes the number of parameters more than AIC. 
+
+From the output above we can state that our theory about possible non-seasonal AR(6) model might be correct. Some of the SARIMA models that have non-seasonal AR(6) part do very well in terms of AIC values, in fact the model SARIMA(6,1,1)(0,1,1)12 has the lowest AIC value, however BIC penalizes complexity of the models differently than AIC does and in terms of BIC values these models are average at best. One might think that we should easily choose models that would have AIC values of 2-3 points higher but with BIC values of 10 points lower at worst that the earlier mentioned SARIMA models but AIC/BIC values is not the only indicator of selecting the most optimal time-series model. After experimenting with the proposed `p`, `P`, `Q` parameters for SARIMA models, we have decided to further validate 3 better than average models. These 3 models, `mod1`, `mod2`, and `mod3`, can be seen in the outputs above. Their value of `p` is different (6,2,0) but all other parameters are identical. We were thinking about inclusion of models that have seasonal AR part with the value of 1 (P = 1) but all such models always do worse in terms of AIC/BIC compared to exactly same models but with seasonal AR part with the value of 0 (P = 0). The first model `mod1` is the most complex in terms of parameters (the highest p parameter), it has the lowest AIC, and the highest BIC. The second model `mod2` is the 2nd ranked in terms of complexity of parameters (the second highest p parameter) and it has the second highest AIC and BIC. The third model `mod3` is the least complex in terms of parameters (the lowest p parameter), it has the highest AIC, and the lowest BIC.
 
 ```{r, echo=FALSE}
-(mod1=arima(tserie,order=c(0,1,1),seasonal=list(order=c(0,1,1),period=12)))
-(mod2=arima(tserie,order=c(2,1,1),seasonal=list(order=c(0,1,1),period=12)))
-(mod3=arima(tserie,order=c(2,1,1),seasonal=list(order=c(1,1,1),period=12)))
+(mod1=arima(serie,order=c(6,1,1),seasonal=list(order=c(0,1,1),period=12)))
+(mod2=arima(serie,order=c(2,1,1),seasonal=list(order=c(0,1,1),period=12)))
+(mod3=arima(serie,order=c(0,1,1),seasonal=list(order=c(0,1,1),period=12)))
 ```
 
 # okay dima, from here you go go
