@@ -1,13 +1,13 @@
 ---
 output:
-  html_document:
-    toc: false
-    toc_depth: '1'
-    df_print: paged
   pdf_document:
     toc: false
     number_sections: false
     toc_depth: 1
+  html_document:
+    toc: false
+    toc_depth: '1'
+    df_print: paged
 editor_options:
   chunk_output_type: console
 ---
@@ -28,27 +28,38 @@ editor_options:
 
 ```{r setup, include=FALSE}
 #knitr::opts_chunk$set(echo = TRUE)
-#setwd("~/uni_folder/ASM/asm_time_series/")
+setwd("~/uni_folder/ASM/asm_time_series/")
 ```
-# Title page (julian will do this later when we finish)
-# Table of contents (julian)
+
 # Introduction
 The dataset under analysis consists of monthly data on victims of traffic accidents in Spain, including fatalities, serious injuries, and minor injuries, recorded on urban and interurban roads. In this project we will apply the Box-Jenkins ARIMA methodology to understand the time-series dynamics of these traffic incidents and to make reliable predictions for future trends. Spanning from 1993 to 2019, the dataset captures over two decades of detailed information, offering a unique opportunity to identify trends, seasonal patterns, and underlying factors that influence traffic accidents.
 
+# 1. Identification
 
-# Analysis
-## Load the time series data
-```{r}
+First, we load the raw data set and plot it to get a first impression of the data. Based on this, we will start with the identification of transformations.
+
+```{r, echo=FALSE}
+par(mfrow=c(1,1))
 serie=ts(read.table("victimas.dat")/1000,start=1993,freq=12)
 plot(serie, main="Victimas de Accidentes de Tráfico en España", ylab="Miles de Individuos")
 abline(v=1992:2020,lty=3,col=4)
 ```
 
-## Data transformations
-```{r}
+\newpage
+
+## 1a. Data transformations
+
+The first step in time series analysis is to check whether transformations are necessary to stabilize variance or remove trends.
+We start by checking if the data shows constant variance over time. This is important because ARIMA models assume that the variance is constant. To do this, we compute the mean and variance for each year and examine their relationship. 
+Additionally, we visualize yearly boxplots to confirm constant variance over time. 
+
+```{r, include=FALSE}
 (m <- apply (matrix(serie[1:(27*12)], nr=12),2, mean)) # to check for constant variance
 (v <- apply (matrix(serie[1:(27*12)], nr=12),2, var))
-plot(v~m)
+```
+```{r, echo=FALSE}
+par(mfrow=c(1,1))
+plot(v~m, main = "Check of constant variance (variance ~ mean)")
 abline(lm(v~m),col=2,lty=3)
 
 group <- c(rep(1:27, rep(12, 27)))
@@ -58,44 +69,55 @@ boxplot(serie ~ group,
         main = "Check of constant variance (yearly boxplots)")
 ```
 
-These plots show correct behaviour: `v` is basically uncorrelated with `m`, and the boxplots are similarily sized, implying constant variance. This means that a log transform is not necessary in our case. The next step is to check the existence of a seasonal pattern in the time series. To do that we are using the function monthplot.
+These plots show correct behaviour: `v` is basically uncorrelated with `m`, and the boxplots are similarly sized, implying constant variance. This means that a log transform is not necessary in our case. The next step is to check the existence of a seasonal pattern in the time series. To do that we are using the function `monthplot`.
 
-```{r}
-monthplot(serie)
+```{r, echo=FALSE}
+monthplot(serie, main = "Seasonal Patterns in Traffic Accident Data")
 ```
 
 In the plot above, we can clearly observe a seasonal pattern. If there were no seasonal component, the monthly means would remain at approximately the same level over time, and the shapes of the patterns for each month would not exhibit systematic repetition. These periodic fluctuations suggest that certain months consistently experience higher or lower values, driven by underlying seasonal component(s). To account for this seasonality, we apply a seasonal differencing transformation with a yearly period (12 months).
 
-```{r}
+```{r, echo=FALSE}
 d12serie=diff(serie,12)
-plot(d12serie)
+plot(d12serie, main = "After seasonality transformation")
 abline(h=0, col='red', lty=2)
 ```
 
 The last step of achieving the stationary of the time series is to check whether the mean is constant or not. This can be done by examining the plot of the current time series data or by straight forwardly applying regular difference and then examining the change of the time series' variance.
 
-```{r}
+```{r, echo=FALSE}
 d1d12serie=diff(d12serie,1)
 ```
 
 To verify if taking one regular difference is optimal, we calculate the variance of different transformation of the data:
+```plaintext
 1. original data (`serie`)
 2. transformed with yearly season transformation (`d12serie`)
 3. one regular difference applied to the previous transformation (`d1d12serie`)
 4. another regular difference applied to the previous transformation
-
-```{r}
-#fix this output
-var(serie)
-var(d12serie)
-var(d1d12serie) # our transformation
-var(diff(d1d12serie)) # 2 regular differences
 ```
 
-The total variance is minimal for one regular and one 12 month seasonal difference. This means that we should take one regular difference and no more. As we can see below, the data after transformations resembles white noise, which is the aim of data transformations in time-series data analysis. Now that we have stationary time series we can propose ARIMA models by evaluating ACF and PACF plots.
+The values are here below:
 
-```{r}
-plot(d1d12serie) 
+```{r, echo=FALSE}
+# Calculate variances for different transformations
+var_original = var(serie)
+var_seasonal_diff = var(d12serie)
+var_regular_diff = var(d1d12serie)
+var_two_regular_diff = var(diff(d1d12serie))
+
+# Output the variances
+cat("Variance of original data:", var_original, "\n")
+cat("Variance after seasonal differencing:", var_seasonal_diff, "\n")
+cat("Variance after one regular differencing:", var_regular_diff, "\n")
+cat("Variance after two regular differencing:", var_two_regular_diff, "\n")
+
+```
+
+The total variance is minimal for one regular and one 12 month seasonal difference. This means that we should take one regular difference and no more. As we can see below, the data after transformations resembles white noise, which is the aim of data transformations in time-series data analysis. Now that we have stationary time series, we can propose ARIMA models by evaluating - among other metrics - the ACF and PACF plots.
+
+```{r, echo=FALSE}
+plot(d1d12serie, main = "Transformed data") 
 abline(h=0, col='red', lty=2)
 ```
 
@@ -103,7 +125,13 @@ abline(h=0, col='red', lty=2)
 tserie <- d1d12serie #transformed serie is new name
 ```
 
-```{r}
+\newpage
+
+## 1b.
+
+Now we are going to take a closer look at the ACF and the PACF plots. 
+
+```{r, echo=FALSE}
 par(mfrow=c(1,2))
 acf(tserie,ylim=c(-1,1),col=c(2,rep(1,11)),lwd=2,lag.max=84)
 pacf(tserie,ylim=c(-1,1),col=c(rep(1,11),2),lwd=2,lag.max=84)
@@ -117,52 +145,17 @@ SARIMA(p, d, q)(P, D, Q)_{s}
 $$
 
 Where:
-- \( p, d, q \) represent the non-seasonal AR, differencing, and MA terms, respectively.
-- \( P, D, Q \) represent the seasonal AR, differencing, and MA terms, respectively.
-- \( s \) is the periodicity of the seasonal component.
+\begin{itemize}
+    \item \( p, d, q \): Non-seasonal AR, differencing, and MA terms, respectively.
+    \item \( P, D, Q \): Seasonal AR, differencing, and MA terms, respectively.
+    \item \( s \): Periodicity of the seasonal component.
+\end{itemize}
+
 
 
 Looking at the ACF plot we can clearly see decaying trend of non-seasonal lags after the lag 1, which is the biggest lag for the whole non-seasonal part and the subsequent lag experienced a sharp decline in ACF value hinting at possible MA(1) model (parameter q = 1). The same things can be said about seasonal lags in the ACF plot. There is a decaying trend of seasonal lags after the seasonal lag 1, which is the biggest seasonal lag for the whole seasonal part and the subsequent seasonal lag experienced a sharp decline in ACF value hinting at possible MA(1) model (parameter Q = 1). Now we move on to the PACF plot, which looks more complex than usual. The clearer trend is seen in seasonal lags of the PACF. The first seasonal lag is the biggest seasonal lag for the whole seasonal part and the subsequent seasonal lag experienced a sharp decline in PACF value hinting at possible AR(1) model (parameter P = 1). Here this trend is clearer than in the case of seasonal lags in the ACF because after seasonal lag 4 values become small so that exceeding confidence intervals becomes nearly impossible. In the ACF plot we have seen some seasonal lags being slightly above confidence intervals even though their antecedent lags were way below confidence intervals. The proposal of non-seasonal AR models by solely looking at the PACF plot in this particular case seems non-trivial, hence it would be a good idea to propose several hypothetical non-seasonal AR models and later check them using several model validation techniques. The decaying trend of non-seasonal AR part is there, though it is slower and seems to start later comparing it to non-seasonal MA part. Therefore, one could argue that one possible non-seasonal AR model which is AR(2) (parameter p = 2) because lag 2 is followed a lag that has experienced a sharp decline in PACF value. However, lags 4,5, and 6 are definitely above confidence intervals. Here is where we can propose another non-seasonal AR mode which is AR(6) (parameter p = 6), because lag 6 is followed by lags that are below confidence intervals consequentially and the decline in their values is sharper. Regarding the values of parameters d and D, we don't need to propose them because we know the actual values which are d = 1 and D = 1. In the end, combining everything we have seen we can propose 9 SARIMA models in the order of increasing complexity, which are:
 
-$$
-\text{1. } SARIMA(0, 1, 1)(1, 1, 0)_{12} \quad \text{(Non-seasonal MA(1), Seasonal AR(1))}
-$$
-
-$$
-\text{2. } SARIMA(0, 1, 1)(0, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Seasonal MA(1))}
-$$
-
-$$
-\text{3. } SARIMA(0, 1, 1)(1, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Seasonal AR(1), Seasonal MA(1))}
-$$
-
-$$
-\text{4. } SARIMA(2, 1, 1)(1, 1, 0)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(2), Seasonal AR(1))}
-$$
-
-$$
-\text{5. } SARIMA(2, 1, 1)(0, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(2), Seasonal MA(1))}
-$$
-
-$$
-\text{6. } SARIMA(2, 1, 1)(1, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(2), Seasonal AR(1), Seasonal MA(1))}
-$$
-
-$$
-\text{7. } SARIMA(6, 1, 1)(1, 1, 0)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(6), Seasonal AR(1))}
-$$
-
-$$
-\text{8. } SARIMA(6, 1, 1)(0, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(6), Seasonal MA(1))}
-$$
-
-$$
-\text{9. } SARIMA(6, 1, 1)(1, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(6), Seasonal AR(1), Seasonal MA(1))}
-$$
-
-
-## Validation
-Now we will start model creation and validation. We use the `validation` function from the fourth practical of this course, as well as other pieces of code.
+\includegraphics[width=\textwidth]{models.png}
 
 ```{r, include=FALSE}
 #################Validation#################################
@@ -268,6 +261,7 @@ validation=function(model){
 ################# Fi Validation #################################
 ```
 
+Below is the same data given in a more tabular manner.
 
 ```{r, echo=FALSE}
 # Initialize a data frame to store the results
@@ -314,12 +308,23 @@ print(dresults)
 
 From the output above we can state that our theory about possible non-seasonal AR(6) model might be correct. Some of the SARIMA models that have non-seasonal AR(6) part do very well in terms of AIC values, in fact the model SARIMA(6,1,1)(0,1,1)<sub>12</sub> has the lowest AIC value, however BIC penalizes complexity of the models differently than AIC does and in terms of BIC values these models are average at best. One might think that we should easily choose models that would have AIC values of 2-3 points higher but with BIC values of 10 points lower at worst that the earlier mentioned SARIMA models but AIC/BIC values is not the only indicator of selecting the most optimal time-series model. After experimenting with the proposed `p`, `P`, `Q` parameters for SARIMA models, we have decided to further validate 3 better than average models. These 3 models, `mod1`, `mod2`, and `mod3`, can be seen in the outputs above. Their value of `p` is different (6,2,0) but all other parameters are identical. We were thinking about inclusion of models that have seasonal AR part with the value of 1 (P = 1) but all such models always do worse in terms of AIC/BIC compared to exactly same models but with seasonal AR part with the value of 0 (P = 0). The first model `mod1` is the most complex in terms of parameters (the highest p parameter), it has the lowest AIC, and the highest BIC. The second model `mod2` is the 2nd ranked in terms of complexity of parameters (the second highest p parameter) and it has the second highest AIC and BIC. The third model `mod3` is the least complex in terms of parameters (the lowest p parameter), it has the highest AIC, and the lowest BIC.
 
+# 2. Estimation
+
+Based on the previous analyisi, we decide to investigate three model and below are the coeficients and other information about the models.
+
+## 2a. 
 ```{r, echo=FALSE}
 (mod1=arima(serie,order=c(6,1,1),seasonal=list(order=c(0,1,1),period=12)))
 (mod2=arima(serie,order=c(2,1,1),seasonal=list(order=c(0,1,1),period=12)))
 (mod3=arima(serie,order=c(0,1,1),seasonal=list(order=c(0,1,1),period=12)))
 ```
 
+
+# 3. Validation
+
+Now we will validate the proposed models, based on a thorough statistical anaylysis.
+
+## 3a. 
 We will be taking a look at the outputs of the validation function for models `mod1`, `mod2`, and `mod3`. This function provides all the necessary things for the evaluation of a model which are complete analysis of residuals and roots of polynomials/pi and psi weights to check the causality and/or invertibility. 
 
 ```{r}
