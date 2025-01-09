@@ -1,23 +1,30 @@
 ---
-title: "Victims_of_traffic_accidents"
-output: html_document
-date: "2025-01-08"
-editor_options: 
+output:
+  html_document:
+    toc: false
+    toc_depth: '1'
+    df_print: paged
+  pdf_document:
+    toc: false
+    number_sections: false
+    toc_depth: 1
+editor_options:
   chunk_output_type: console
 ---
 
-```plaintext
-title: 'ASM - Time Series'
-author: "Dmitriy Chukhray, Julian Fransen"
-date: "2024-11-24"
-output:
-  html_document:
-    toc: true
-    toc_depth: '3'
-    df_print: paged
-editor_options:
-  chunk_output_type: inline
-```
+\begin{titlepage}
+    \centering
+    \includegraphics[width=\textwidth]{UPC.jpg}
+    \vfill
+    {\Huge \textbf{ASM - Time Series Project}} \\[1.5cm]
+    \vfill
+    {\Large Authors: Dmitriy Chukhray, Julian Fransen} \\[0.5cm]
+    {\Large Date: 2025-01-06}
+\end{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
 
 ```{r setup, include=FALSE}
 #knitr::opts_chunk$set(echo = TRUE)
@@ -85,7 +92,7 @@ var(d1d12serie) # our transformation
 var(diff(d1d12serie)) # 2 regular differences
 ```
 
-The total variance is minimal for one regular and one 12 month seasonal difference. This means that we should take one regular difference and no more. As we can see below, the data after transformations resembles white noise, which is the aim of data transformations in time-series data analysis.
+The total variance is minimal for one regular and one 12 month seasonal difference. This means that we should take one regular difference and no more. As we can see below, the data after transformations resembles white noise, which is the aim of data transformations in time-series data analysis. Now that we have stationary time series we can propose ARIMA models by evaluating ACF and PACF plots.
 
 ```{r}
 plot(d1d12serie) 
@@ -98,9 +105,60 @@ tserie <- d1d12serie #transformed serie is new name
 
 ```{r}
 par(mfrow=c(1,2))
-acf(tserie,ylim=c(-1,1),col=c(2,rep(1,11)),lwd=2,lag.max=72)
-pacf(tserie,ylim=c(-1,1),col=c(rep(1,11),2),lwd=2,lag.max=72)
+acf(tserie,ylim=c(-1,1),col=c(2,rep(1,11)),lwd=2,lag.max=84)
+pacf(tserie,ylim=c(-1,1),col=c(rep(1,11),2),lwd=2,lag.max=84)
 ```
+
+To propose SARIMA models we need to evaluate ACF and PACF plots separately.
+SARIMA model can be expressed as:
+
+$$
+SARIMA(p, d, q)(P, D, Q)_{s}
+$$
+
+Where:
+- \( p, d, q \) represent the non-seasonal AR, differencing, and MA terms, respectively.
+- \( P, D, Q \) represent the seasonal AR, differencing, and MA terms, respectively.
+- \( s \) is the periodicity of the seasonal component.
+
+
+Looking at the ACF plot we can clearly see decaying trend of non-seasonal lags after the lag 1, which is the biggest lag for the whole non-seasonal part and the subsequent lag experienced a sharp decline in ACF value hinting at possible MA(1) model (parameter q = 1). The same things can be said about seasonal lags in the ACF plot. There is a decaying trend of seasonal lags after the seasonal lag 1, which is the biggest seasonal lag for the whole seasonal part and the subsequent seasonal lag experienced a sharp decline in ACF value hinting at possible MA(1) model (parameter Q = 1). Now we move on to the PACF plot, which looks more complex than usual. The clearer trend is seen in seasonal lags of the PACF. The first seasonal lag is the biggest seasonal lag for the whole seasonal part and the subsequent seasonal lag experienced a sharp decline in PACF value hinting at possible AR(1) model (parameter P = 1). Here this trend is clearer than in the case of seasonal lags in the ACF because after seasonal lag 4 values become small so that exceeding confidence intervals becomes nearly impossible. In the ACF plot we have seen some seasonal lags being slightly above confidence intervals even though their antecedent lags were way below confidence intervals. The proposal of non-seasonal AR models by solely looking at the PACF plot in this particular case seems non-trivial, hence it would be a good idea to propose several hypothetical non-seasonal AR models and later check them using several model validation techniques. The decaying trend of non-seasonal AR part is there, though it is slower and seems to start later comparing it to non-seasonal MA part. Therefore, one could argue that one possible non-seasonal AR model which is AR(2) (parameter p = 2) because lag 2 is followed a lag that has experienced a sharp decline in PACF value. However, lags 4,5, and 6 are definitely above confidence intervals. Here is where we can propose another non-seasonal AR mode which is AR(6) (parameter p = 6), because lag 6 is followed by lags that are below confidence intervals consequentially and the decline in their values is sharper. Regarding the values of parameters d and D, we don't need to propose them because we know the actual values which are d = 1 and D = 1. In the end, combining everything we have seen we can propose 9 SARIMA models in the order of increasing complexity, which are:
+
+$$
+\text{1. } SARIMA(0, 1, 1)(1, 1, 0)_{12} \quad \text{(Non-seasonal MA(1), Seasonal AR(1))}
+$$
+
+$$
+\text{2. } SARIMA(0, 1, 1)(0, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Seasonal MA(1))}
+$$
+
+$$
+\text{3. } SARIMA(0, 1, 1)(1, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Seasonal AR(1), Seasonal MA(1))}
+$$
+
+$$
+\text{4. } SARIMA(2, 1, 1)(1, 1, 0)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(2), Seasonal AR(1))}
+$$
+
+$$
+\text{5. } SARIMA(2, 1, 1)(0, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(2), Seasonal MA(1))}
+$$
+
+$$
+\text{6. } SARIMA(2, 1, 1)(1, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(2), Seasonal AR(1), Seasonal MA(1))}
+$$
+
+$$
+\text{7. } SARIMA(6, 1, 1)(1, 1, 0)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(6), Seasonal AR(1))}
+$$
+
+$$
+\text{8. } SARIMA(6, 1, 1)(0, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(6), Seasonal MA(1))}
+$$
+
+$$
+\text{9. } SARIMA(6, 1, 1)(1, 1, 1)_{12} \quad \text{(Non-seasonal MA(1), Non-seasonal AR(6), Seasonal AR(1), Seasonal MA(1))}
+$$
 
 
 ## Validation
@@ -211,76 +269,54 @@ validation=function(model){
 ```
 
 
-
 ```{r, echo=FALSE}
-par(mfrow=c(1,2))
-acf(tserie,ylim=c(-1,1),col=c(2,rep(1,11)),lwd=2,lag.max=72)
-pacf(tserie,ylim=c(-1,1),col=c(rep(1,11),2),lwd=2,lag.max=72)
-```
-
-
-On these plots above (left ACF plot, right PACF) we can see that almost all values fall within the CI, meaning we can assume they are zero. This is of course how these plots are supposed to look like after a valid data transformation. There are, however, a few significant non-zero values, which we will use for model selection. 
-
-Now we will define our ARIMA model, partly based on theory and partly based on empirical test. We know that it is seasonal data
-
-After accounting for difference, look at the residual ACF and PACF (or the differenced series) to decide on:
-
-    p: the order of the AR part, guided by how many lags in the PACF are significant.
-    q: the order of the MA part, guided by how many lags in the ACF are significant.
-Based on the ACF plot, `p` is most likely 2. `q`could be either 0 or 1. We applied one regular difference, so we know `d` is 1. 
-To be thorough, initially we take all possible lower order values of p and q. Then we discard them based on AIC and BIC
-For the seasonal argument, we know the data is seasonal so we should set `seasonal` to ` =list(order=c(0,1,1),period=12))`
-
-## Because of the peak at lag 12 in both ACF and PACF, we tried changing order values in here: the list(order = c(0,1,1), period = 12))
-
-Lets make sure that seasonality is optimal.
-
-```{r, include=FALSE}
 # Initialize a data frame to store the results
 results <- data.frame(p = integer(),
-                      P = integer(),
+                      i = integer(),
                       q = integer(),
-            
+                      P = integer(),
+                      D = integer(),
+                      Q = integer(),
                       AIC = numeric(),
                       BIC = numeric())
 
+
 # Loop over possible values of P, D, Q, and period
-for (p in 0:2) {          # Experiment with seasonal AR orders (e.g., 0 to 2)
-  for (q in 0:1) {        # Seasonal differencing (typically 0 or 1)
-     for (P in 0:1) {     # Experiment with seasonal MA orders (e.g., 0 to 2)
+for (p in c(0,2,6)) {          # Experiment with seasonal AR orders (e.g., 0 to 2)
+  for (P in c(0,1)) {        # Seasonal differencing (typically 0 or 1)
+     for (Q in 0:1) {     # Experiment with seasonal MA orders (e.g., 0 to 2)
       
 
         # Fit the ARIMA model with the current seasonal parameters
         mod <- arima(serie, 
-                     order = c(p, 1, q), 
-                     seasonal = list(order = c(0,1,1), period = 12))
+                     order = c(p, 1, 1), 
+                     seasonal = list(order = c(P,1,Q), period = 12))
 
         # Store the AIC and BIC values
         results <- rbind(results, 
-                         data.frame(p = p, 
+                            data.frame(p = p,
+                                    i = 1,
+                                    q = 1,
                                     P = P,
-                                   
-                                    q = q, 
+                                    D = 1,
+                                    Q = Q, 
                                     AIC = AIC(mod), 
                                     BIC = BIC(mod)))
-      
      }
   }
 }
 
 # Sort results by AIC (or BIC) for easier interpretation
-dresults <- results[order(results$AIC), ]
-m1m2res <- dresults[1:2]
+dresults <- results[order(results$BIC), ]
 # Display the results
 print(dresults)
 ```
 After experimenting with the `p`, `i`, and `q` parameters of `order`, and with the seasonality parameters as well, we have found 2 similarly performing models. `mod1` and `mod2` (see table below). Their value of `p` is different but all other parameters are identical. We chose these two models because they both have a low AIC value; `mod1` has the lowest and `mod2` has a slightly higher value, but has fewer parameters, reflected in the fact that is has the lowest BIC value, since this metric penalizes the number of parameters more than AIC. 
 
 ```{r, echo=FALSE}
-m1m2res <- head(dresults, 2)
-print(m1m2res)
-(mod1=arima(tserie,order=c(2,0,1),seasonal=list(order=c(0,1,1),period=12)))
-(mod2=arima(tserie,order=c(0,0,1),seasonal=list(order=c(0,1,1),period=12)))
+(mod1=arima(tserie,order=c(0,1,1),seasonal=list(order=c(0,1,1),period=12)))
+(mod2=arima(tserie,order=c(2,1,1),seasonal=list(order=c(0,1,1),period=12)))
+(mod3=arima(tserie,order=c(2,1,1),seasonal=list(order=c(1,1,1),period=12)))
 ```
 
 # okay dima, from here you go go
@@ -293,9 +329,12 @@ We will be taking a look at the residual plots for these models and selecting on
 validation(mod1)
 ```
 
-
 ```{r}
 validation(mod2)
+```
+
+```{r}
+validation(mod3)
 ```
 
 ```{r}
