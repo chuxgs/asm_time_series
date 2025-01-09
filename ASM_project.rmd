@@ -28,7 +28,7 @@ editor_options:
 
 ```{r setup, include=FALSE}
 #knitr::opts_chunk$set(echo = TRUE)
-setwd("~/uni_folder/ASM/asm_time_series/")
+#setwd("~/uni_folder/ASM/asm_time_series/")
 ```
 
 # Introduction
@@ -324,7 +324,7 @@ Based on the previous analyisi, we decide to investigate three model and below a
 
 Now we will validate the proposed models, based on a thorough statistical anaylysis.
 
-## 3a. 
+## 3a and 3b. 
 We will be taking a look at the outputs of the validation function for models `mod1`, `mod2`, and `mod3`. This function provides all the necessary things for the evaluation of a model which are complete analysis of residuals and roots of polynomials/pi and psi weights to check the causality and/or invertibility. 
 
 ```{r}
@@ -409,10 +409,12 @@ For the model SARIMA(0,1,1)(0,1,1)<sub>12</sub>
     
 Based on the SARIMA(0,1,1)(0,1,1)<sub>12</sub> model modules of AR/MA characteristic polynomial roots we can say that the model is both causal and invertible as all modules of polynomial roots are higher than 1.
 
+
+## 3c.
 Now we are going to check the stability of the proposed models and evaluate their capability of prediction, reserving the last 12 observations.
 
 
-```{r}
+```{r, echo = FALSE, results = "hide", message = FALSE, warning = FALSE}
 # Correct split for training and testing
 ultim <- c(2018, 12)  # Train until the end of 2018
 serie_train <- window(serie, end = ultim)  # Training data (1993 to 2018)
@@ -444,24 +446,6 @@ tu2 <- pr2 + 1.96 * se2
 tl3 <- pr3 - 1.96 * se3
 tu3 <- pr3 + 1.96 * se3
 
-# Visualize predictions for Model 1 with Actual Data
-ts.plot(serie, tl1, tu1, pr1, lty = c(1, 2, 2, 1), col = c(1, 4, 4, 2),
-        xlim = c(2017, 2020), type = "o",
-        main = paste("Model ARIMA(6,1,1)(0,1,1)12"))
-abline(v = (2017:2020), lty = 3, col = 4)
-
-# Visualize predictions for Model 2
-ts.plot(serie, tl2, tu2, pr2, lty = c(1, 2, 2, 1), col = c(1, 4, 4, 2),
-        xlim = c(2017, 2020), type = "o",
-        main = paste("Model ARIMA(2,1,1)(0,1,1)12"))
-abline(v = (2017:2020), lty = 3, col = 4)
-
-# Visualize predictions for Model 3
-ts.plot(serie, tl3, tu3, pr3, lty = c(1, 2, 2, 1), col = c(1, 4, 4, 2),
-        xlim = c(2017, 2020), type = "o",
-        main = paste("Model ARIMA(0,1,1)(0,1,1)12"))
-abline(v = (2017:2020), lty = 3, col = 4)
-
 # Evaluate Prediction Errors (2019 Observations)
 obs <- window(serie, start = ultim + c(0, 1))  # Observed data for 2019
 error1 <- obs - window(pr1, start = ultim + c(0, 1))
@@ -488,3 +472,78 @@ metrics <- data.frame(
 # Display Metrics
 metrics
 ```
+
+```{r, echo = FALSE}
+# Visualize predictions for Model 1 with Actual Data
+plot(serie, xlim = c(2017, 2020), ylim = range(c(tl1, tu1, serie)),
+     type = "o", col = 1, lty = 1, ylab = "Values", xlab = "Time",
+     main = paste("Model ARIMA(6,1,1)(0,1,1)12"), xaxt = "n")
+lines(pr1, col = 2, lty = 1, type = "o")
+lines(tl1, col = 4, lty = 2)
+lines(tu1, col = 4, lty = 2)
+axis(1, at = c(2017, 2018, 2019, 2020), labels = c("2017", "2018", "2019", "2020"))
+abline(v = c(2017, 2018, 2019, 2020), lty = 3, col = 4)
+
+# Visualize predictions for Model 2
+plot(serie, xlim = c(2017, 2020), ylim = range(c(tl2, tu2, serie)),
+     type = "o", col = 1, lty = 1, ylab = "Values", xlab = "Time",
+     main = paste("Model ARIMA(2,1,1)(0,1,1)12"), xaxt = "n")
+lines(pr2, col = 2, lty = 1, type = "o")
+lines(tl2, col = 4, lty = 2)
+lines(tu2, col = 4, lty = 2)
+axis(1, at = c(2017, 2018, 2019, 2020), labels = c("2017", "2018", "2019", "2020"))
+abline(v = c(2017, 2018, 2019, 2020), lty = 3, col = 4)
+
+# Visualize predictions for Model 3
+plot(serie, xlim = c(2017, 2020), ylim = range(c(tl3, tu3, serie)),
+     type = "o", col = 1, lty = 1, ylab = "Values", xlab = "Time",
+     main = paste("Model ARIMA(0,1,1)(0,1,1)12"), xaxt = "n")
+lines(pr3, col = 2, lty = 1, type = "o")
+lines(tl3, col = 4, lty = 2)
+lines(tu3, col = 4, lty = 2)
+axis(1, at = c(2017, 2018, 2019, 2020), labels = c("2017", "2018", "2019", "2020"))
+abline(v = c(2017, 2018, 2019, 2020), lty = 3, col = 4)
+
+# Display Metrics
+print(metrics, row.names = FALSE)
+```
+
+As you can see all of the models manage to predict the last year somewhat good, the differences in error metrics are extremely small but they exist. By comparing all the models, model 1, which is SARIMA(6,1,1)(0,1,1)<sub>12</sub> turns out to be the best. Additionally, the stability of all models can be affirmed, as the confidence intervals of the predictions remain well-behaved and do not widen excessively, indicating consistent performance and reliability over time.
+
+## 3d.
+
+In order to select the best model for forecasting we have to evaluate validation results, stability, and capability of prediction of all three candidate models. As we have seen earlier, all three candidate models are stable, model 1 shows the best error metrics, which means we only need to look at validation results. All three candidate models are similar in terms of the following things, which are: residuals plot, square Root of absolute residuals, histogram of residuals, ACF and PACF of residuals, and standardized residuals. The only differences between three candidate models can be seen in normal Q-Q plot and p-values for Ljung-Box test. In terms of the "best" normal Q-Q plot out of all candidate models, the model 3 has it. However, in terms of the "best" p-values for Ljung-Box test out of all candidate models, the model 1 has it. Since differences in normal Q-Q plots are negligible, we have to choose the model 3 as the best because its p-values for Ljung-Box test are the best. It is very important to note, that by saying the "best" we refer to the model and data we have, the "best" model is not necessarily the best in the absolute terms.
+
+
+# 4. Predictions
+
+## 4a.
+
+The last thing we are going to do is obtain long term forecasts for the twelve months following the last observation available using the best model for forecasting
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+ultim <- c(2019, 12)
+serie_train <- window(serie, end = ultim)
+mod1B <- arima(serie_train, order = c(6, 1, 1), seasonal = list(order = c(0, 1, 1), period = 12))
+pred1 <- predict(mod1B, n.ahead = 12)
+pr1 <- ts(pred1$pred, start = ultim + c(0, 1), freq = 12)
+se1 <- ts(pred1$se, start = ultim + c(0, 1), freq = 12)
+tl1 <- pr1 - 1.96 * se1
+tu1 <- pr1 + 1.96 * se1
+ts.plot(serie, tl1, tu1, pr1, lty = c(1, 2, 2, 1), col = c(1, 4, 4, 2),
+        xlim = c(2017, 2021), type = "o",
+        main = paste("Model ARIMA(6,1,1)(0,1,1)12: Forecast for 2020-2021"))
+abline(v = (2017:2021), lty = 3, col = 4)
+forecast_results <- data.frame(
+  Month = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"),
+  Predicted = pr1,
+  Lower_CI = tl1,
+  Upper_CI = tu1
+)
+```
+
+```{r, echo=FALSE}
+print(forecast_results, row.names = FALSE)
+```
+
+By looking at the prediction in the future made by our best model we can affirm the stability of the model, as the confidence intervals of the predictions remain well-behaved and do not widen excessively, indicating consistent performance and reliability over time.
